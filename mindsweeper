@@ -1,106 +1,84 @@
-import random
 import tkinter as tk
+import random
 
-# Global variables
-NUM_ROWS = 5
-NUM_COLS = 4
-NUM_MINES = 3 # Adjust for desired difficulty
+# Constants
+WIDTH = 5
+HEIGHT = 4
+MINES = 4
 
-# Initialize the game board
-board = [['' for _ in range(NUM_COLS)] for _ in range(NUM_ROWS)]
-revealed = [[False for _ in range(NUM_COLS)] for _ in range(NUM_ROWS)]
+class Minesweeper:
+    def __init__(self, master):
+        self.master = master
+        self.master.title("Minesweeper")
+        self.buttons = [[None for _ in range(WIDTH)] for _ in range(HEIGHT)]
+        self.is_clicked = [[False for _ in range(WIDTH)] for _ in range(HEIGHT)]
+        self.is_mine = [[False for _ in range(WIDTH)] for _ in range(HEIGHT)]
+        self.game_over = False
+        self.create_grid()
+        self.place_mines()
 
-# Function to generate mines
-def generate_mines():
-    mine_count = 0
-    while mine_count < NUM_MINES:
-        row = random.randint(0, NUM_ROWS - 1)
-        col = random.randint(0, NUM_COLS - 1)
-        if board[row][col] != '*':
-            board[row][col] = '*'
-            mine_count += 1
+    def create_grid(self):
+        for row in range(HEIGHT):
+            for col in range(WIDTH):
+                button = tk.Button(self.master, text="", width=2, height=1,
+                                   command=lambda row=row, col=col: self.click(row, col))
+                button.grid(row=row, column=col)
+                self.buttons[row][col] = button
 
-# Function to calculate neighboring mines for each cell
-def calculate_neighbors():
-    for row in range(NUM_ROWS):
-        for col in range(NUM_COLS):
-            if board[row][col] == '*':
-                continue
-            neighbor_count = 0
-            for i in range(row - 1, row + 2):
-                for j in range(col - 1, col + 2):
-                    if 0 <= i < NUM_ROWS and 0 <= j < NUM_COLS and board[i][j] == '*':
-                        neighbor_count += 1
-            board[row][col] = neighbor_count
+    def place_mines(self):
+        mines_placed = 0
+        while mines_placed < MINES:
+            row = random.randint(0, HEIGHT - 1)
+            col = random.randint(0, WIDTH - 1)
+            if not self.is_mine[row][col]:
+                self.is_mine[row][col] = True
+                mines_placed += 1
 
-# Function to handle left-click (reveal cell)
-def left_click(row, col):
-    if revealed[row][col]:
-        return
-    revealed[row][col] = True
+    def click(self, row, col):
+        if self.is_mine[row][col]:
+            self.buttons[row][col].config(text="*", bg="red")
+            self.game_over = True
+            self.reveal_mines()
+            tk.messagebox.showinfo("Game Over", "You clicked on a mine! Game Over!")
+        else:
+            self.reveal(row, col)
+            if self.check_win():
+                tk.messagebox.showinfo("Congratulations!", "You win!")
 
-    if board[row][col] == '*':
-        # Game over
-        for i in range(NUM_ROWS):
-            for j in range(NUM_COLS):
-                revealed[i][j] = True
-        game_over_label.config(text="Game Over!", foreground="red")
-        return
+    def reveal(self, row, col):
+        if 0 <= row < HEIGHT and 0 <= col < WIDTH and not self.is_clicked[row][col]:
+            mines_count = self.count_adjacent_mines(row, col)
+            self.is_clicked[row][col] = True
+            if mines_count > 0:
+                self.buttons[row][col].config(text=str(mines_count))
+            else:
+                self.buttons[row][col].config(text="")
+                for dr in [-1, 0, 1]:
+                    for dc in [-1, 0, 1]:
+                        self.reveal(row + dr, col + dc)
 
-    if board[row][col] == 0:
-        # Flood fill for empty cells
-        for i in range(row - 1, row + 2):
-            for j in range(col - 1, col + 2):
-                if 0 <= i < NUM_ROWS and 0 <= j < NUM_COLS and not revealed[i][j]:
-                    left_click(i, j)
+    def count_adjacent_mines(self, row, col):
+        count = 0
+        for dr in [-1, 0, 1]:
+            for dc in [-1, 0, 1]:
+                if 0 <= row + dr < HEIGHT and 0 <= col + dc < WIDTH:
+                    if self.is_mine[row + dr][col + dc]:
+                        count += 1
+        return count
 
-# Function to handle right-click (flag cell)
-def right_click(row, col):
-    if revealed[row][col]:
-        return
-    revealed[row][col] = not revealed[row][col]
-    button_grid[row][col].config(text="" if revealed[row][col] else "")
+    def reveal_mines(self):
+        for row in range(HEIGHT):
+            for col in range(WIDTH):
+                if self.is_mine[row][col]:
+                    self.buttons[row][col].config(text="*", bg="red")
 
-# Function to check for win condition
-def check_win():
-    for row in range(NUM_ROWS):
-        for col in range(NUM_COLS):
-            if not revealed[row][col] and board[row][col] != '*':
-                return False
-    # Game won
-    for i in range(NUM_ROWS):
-        for j in range(NUM_COLS):
-            revealed[i][j] = True
-    game_over_label.config(text="You Win!", foreground="green")
+    def check_win(self):
+        for row in range(HEIGHT):
+            for col in range(WIDTH):
+                if not self.is_clicked[row][col] and not self.is_mine[row][col]:
+                    return False
+        return True
 
-# Create the main window
-window = tk.Tk()
-window.title("Minesweeper (5x4)")
-
-# Create the game board
-button_grid = []
-for row in range(NUM_ROWS):
-    button_row = []
-    for col in range(NUM_COLS):
-        button = tk.Button(
-            window,
-            text="",
-            width=3,
-            height=1,
-            font=("Arial", 16),
-            command=lambda r=row, c=col: left_click(r, c),
-        )
-        button.bind("<Button-3>", lambda event, r=row, c=col: right_click(r, c))
-        button_row.append(button)
-        button.grid(row=row, column=col)
-    button_grid.append(button_row)
-
-# Generate mines and calculate neighboring mines
-generate_mines()
-calculate_neighbors()
-
-# Game over label
-game_over_label = tk.Label(window, text="")
-game_over_label.grid(row=NUM_ROWS, columnspan=NUM_COLS)
-
-window.mainloop()
+root = tk.Tk()
+minesweeper = Minesweeper(root)
+root.mainloop()
