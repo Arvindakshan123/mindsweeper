@@ -1,0 +1,106 @@
+import random
+import tkinter as tk
+
+# Global variables
+NUM_ROWS = 5
+NUM_COLS = 4
+NUM_MINES = 3 # Adjust for desired difficulty
+
+# Initialize the game board
+board = [['' for _ in range(NUM_COLS)] for _ in range(NUM_ROWS)]
+revealed = [[False for _ in range(NUM_COLS)] for _ in range(NUM_ROWS)]
+
+# Function to generate mines
+def generate_mines():
+    mine_count = 0
+    while mine_count < NUM_MINES:
+        row = random.randint(0, NUM_ROWS - 1)
+        col = random.randint(0, NUM_COLS - 1)
+        if board[row][col] != '*':
+            board[row][col] = '*'
+            mine_count += 1
+
+# Function to calculate neighboring mines for each cell
+def calculate_neighbors():
+    for row in range(NUM_ROWS):
+        for col in range(NUM_COLS):
+            if board[row][col] == '*':
+                continue
+            neighbor_count = 0
+            for i in range(row - 1, row + 2):
+                for j in range(col - 1, col + 2):
+                    if 0 <= i < NUM_ROWS and 0 <= j < NUM_COLS and board[i][j] == '*':
+                        neighbor_count += 1
+            board[row][col] = neighbor_count
+
+# Function to handle left-click (reveal cell)
+def left_click(row, col):
+    if revealed[row][col]:
+        return
+    revealed[row][col] = True
+
+    if board[row][col] == '*':
+        # Game over
+        for i in range(NUM_ROWS):
+            for j in range(NUM_COLS):
+                revealed[i][j] = True
+        game_over_label.config(text="Game Over!", foreground="red")
+        return
+
+    if board[row][col] == 0:
+        # Flood fill for empty cells
+        for i in range(row - 1, row + 2):
+            for j in range(col - 1, col + 2):
+                if 0 <= i < NUM_ROWS and 0 <= j < NUM_COLS and not revealed[i][j]:
+                    left_click(i, j)
+
+# Function to handle right-click (flag cell)
+def right_click(row, col):
+    if revealed[row][col]:
+        return
+    revealed[row][col] = not revealed[row][col]
+    button_grid[row][col].config(text="" if revealed[row][col] else "")
+
+# Function to check for win condition
+def check_win():
+    for row in range(NUM_ROWS):
+        for col in range(NUM_COLS):
+            if not revealed[row][col] and board[row][col] != '*':
+                return False
+    # Game won
+    for i in range(NUM_ROWS):
+        for j in range(NUM_COLS):
+            revealed[i][j] = True
+    game_over_label.config(text="You Win!", foreground="green")
+
+# Create the main window
+window = tk.Tk()
+window.title("Minesweeper (5x4)")
+
+# Create the game board
+button_grid = []
+for row in range(NUM_ROWS):
+    button_row = []
+    for col in range(NUM_COLS):
+        button = tk.Button(
+            window,
+            text="",
+            width=3,
+            height=1,
+            font=("Arial", 16),
+            command=lambda r=row, c=col: left_click(r, c),
+        )
+        button.bind("<Button-3>", lambda event, r=row, c=col: right_click(r, c))
+        button_row.append(button)
+        button.grid(row=row, column=col)
+    button_grid.append(button_row)
+
+# Generate mines and calculate neighboring mines
+generate_mines()
+calculate_neighbors()
+
+# Game over label
+game_over_label = tk.Label(window, text="")
+game_over_label.grid(row=NUM_ROWS, columnspan=NUM_COLS)
+
+window.mainloop()
